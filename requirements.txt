@@ -1,0 +1,7 @@
+pandas
+openpyxl
+pymupdf
+customtkinter
+streamlit
+qrcode
+pillow

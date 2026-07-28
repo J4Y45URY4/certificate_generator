@@ -1,0 +1,29 @@
+# Credentials & Configuration
+.env
+.env.local
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Project specific outputs & temp files
+certificates_output/
+temp_uploads/
+temp_output/
+names.xlsx
+template.pdf
+generate_test_assets.py
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

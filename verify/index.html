@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Verification Portal</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for beautiful icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --bg-color: #080B11;
+            --card-bg: rgba(17, 25, 40, 0.75);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --accent-success: #10B981;
+            --accent-error: #EF4444;
+            --accent-blue: #3B82F6;
+            --glow-color: rgba(59, 130, 246, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            position: relative;
+            padding: 20px;
+        }
+
+        /* Decorative radial glow backgrounds */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+            top: 15%;
+            left: 10%;
+            z-index: -1;
+            filter: blur(40px);
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+            bottom: 10%;
+            right: 10%;
+            z-index: -1;
+            filter: blur(50px);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 520px;
+            z-index: 1;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            text-align: center;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Verification Badge/Icon */
+        .status-icon-wrapper {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 25px auto;
+            font-size: 32px;
+            position: relative;
+            transition: all 0.5s ease;
+        }
+
+        /* Default / Loading State */
+        .status-loading {
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px solid var(--accent-blue);
+            color: var(--accent-blue);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+            animation: pulseBlue 2s infinite;
+        }
+
+        .status-loading i {
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Verified / Success State */
+        .status-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid var(--accent-success);
+            color: var(--accent-success);
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+        }
+
+        /* Unverified / Error State */
+        .status-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid var(--accent-error);
+            color: var(--accent-error);
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.35);
+        }
+
+        @keyframes pulseBlue {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+
+        .main-heading {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .sub-heading {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        /* Certificate Details Table */
+        .details-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: left;
+            display: none;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .detail-row:first-child {
+            padding-top: 0;
+        }
+
+        .detail-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .detail-value {
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: right;
+            max-width: 60%;
+            word-wrap: break-word;
+        }
+
+        /* Manual Search Mode UI */
+        .search-form {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
+        }
+
+        .action-button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(29, 78, 216, 0.3);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge-error {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .message-box {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card" id="card">
+            
+            <!-- Icon Wrapper -->
+            <div id="status-icon" class="status-icon-wrapper status-loading">
+                <i class="fa-solid fa-circle-notch"></i>
+            </div>
+
+            <!-- Header info -->
+            <h1 class="main-heading" id="main-title">Verifying Certificate</h1>
+            <p class="sub-heading" id="subtitle">Please wait while we check our database...</p>
+
+            <!-- Status message -->
+            <div class="message-box" id="message">
+                Contacting secure authentication server to verify credentials and metadata signatures.
+            </div>
+
+            <!-- Details Panel -->
+            <div class="details-panel" id="details-panel">
+                <div class="detail-row">
+                    <span class="detail-label">Certificate ID</span>
+                    <span class="detail-value" id="cert-id-val">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Recipient Name</span>
+                    <span class="detail-value" id="cert-name-val">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Event Name</span>
+                    <span class="detail-value" id="cert-event-val">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Issue Date</span>
+                    <span class="detail-value" id="cert-date-val">-</span>
+                </div>
+            </div>
+
+            <!-- Manual Search Form -->
+            <div class="search-form" id="search-form">
+                <div class="input-group">
+                    <input type="text" id="cert-input" class="input-field" placeholder="Enter Certificate ID (e.g. CERT-XXXXXX)">
+                </div>
+                <button onclick="performManualVerification()" class="action-button">Verify Credentials</button>
+            </div>
+
+            <!-- Back/Action Button for navigation -->
+            <button id="reset-btn" class="action-button" style="display: none; margin-top: 10px;" onclick="showSearchForm()">Verify Another ID</button>
+
+        </div>
+
+        <div class="footer">
+            Secure Digital Credential Verification &copy; 2026<br>
+            Powered by <a href="https://supabase.com" target="_blank">Supabase DB</a> and Cryptographic Signatures.
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = "https://wogcywfqggqgryixrhek.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_MsTlsI2rjkCrv0LPPdOFNw_zQpkpFju";
+
+        // Initialize Supabase Client
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // UI Element References
+        const statusIcon = document.getElementById('status-icon');
+        const mainTitle = document.getElementById('main-title');
+        const subtitle = document.getElementById('subtitle');
+        const messageBox = document.getElementById('message');
+        const detailsPanel = document.getElementById('details-panel');
+        const searchForm = document.getElementById('search-form');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Fields in details panel
+        const idVal = document.getElementById('cert-id-val');
+        const nameVal = document.getElementById('cert-name-val');
+        const eventVal = document.getElementById('cert-event-val');
+        const dateVal = document.getElementById('cert-date-val');
+
+        // Main logic on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const certId = urlParams.get('id');
+
+            // Add enter key trigger for manual search
+            document.getElementById('cert-input').addEventListener('keyup', (event) => {
+                if (event.key === 'Enter') {
+                    performManualVerification();
+                }
+            });
+
+            if (certId) {
+                // Verification Mode
+                verifyCertificate(certId.trim());
+            } else {
+                // Search Mode
+                showSearchForm();
+            }
+        });
+
+        // Toggle UI into Manual Search Mode
+        function showSearchForm() {
+            // Adjust card visual state
+            statusIcon.className = "status-icon-wrapper status-loading";
+            statusIcon.innerHTML = '<i class="fa-solid fa-shield-halved"></i>';
+            statusIcon.style.animation = "none";
+            
+            mainTitle.innerText = "Credential Verification";
+            subtitle.innerText = "Verify a certificate authenticity by ID";
+            messageBox.innerHTML = "Scan the QR code printed on the certificate, or enter the unique Certificate ID printed at the bottom of the page.";
+            
+            detailsPanel.style.display = "none";
+            searchForm.style.display = "block";
+            resetBtn.style.display = "none";
+            
+            document.getElementById('cert-input').value = "";
+        }
+
+        // Trigger manual ID lookup
+        function performManualVerification() {
+            const inputVal = document.getElementById('cert-input').value.trim();
+            if (!inputVal) {
+                alert("Please enter a valid Certificate ID!");
+                return;
+            }
+            // Transition to loading state and search
+            setLoadingState();
+            setTimeout(() => {
+                verifyCertificate(inputVal);
+            }, 500);
+        }
+
+        // Set UI to loading state
+        function setLoadingState() {
+            statusIcon.className = "status-icon-wrapper status-loading";
+            statusIcon.innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
+            statusIcon.style.animation = "";
+            
+            mainTitle.innerText = "Verifying Certificate";
+            subtitle.innerText = "Checking credentials database...";
+            messageBox.innerText = "Verifying certificate parameters. Please wait...";
+            
+            detailsPanel.style.display = "none";
+            searchForm.style.display = "none";
+            resetBtn.style.display = "none";
+        }
+
+        // Call Supabase Database to verify Certificate ID
+        async function verifyCertificate(certId) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('certificates')
+                    .select('*')
+                    .eq('id', certId)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error("Database query error:", error);
+                    showVerificationError(certId, "Database query connection failed.");
+                    return;
+                }
+
+                if (data) {
+                    showVerificationSuccess(data);
+                } else {
+                    showVerificationNotFound(certId);
+                }
+            } catch (err) {
+                console.error("Client error during fetch:", err);
+                showVerificationError(certId, "Network or system error occurred.");
+            }
+        }
+
+        // Render SUCCESS state
+        function showVerificationSuccess(certificate) {
+            // Update Icon
+            statusIcon.className = "status-icon-wrapper status-success";
+            statusIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+            statusIcon.style.animation = "pulseGreen 2s infinite";
+
+            // Add dynamic style animation
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @keyframes pulseGreen {
+                    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+                    70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Update Headings
+            mainTitle.innerText = "Verified Authentic";
+            subtitle.innerText = "Digital Certificate Signature Match";
+
+            // Message Badge
+            messageBox.innerHTML = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Authentic Credential</span><p style="margin-top: 10px;">This certificate is officially registered, authentic, and was issued by authorized authorities.</p>';
+
+            // Load Details
+            idVal.innerText = certificate.id;
+            nameVal.innerText = certificate.name;
+            eventVal.innerText = certificate.event_name || "N/A";
+            dateVal.innerText = certificate.issue_date || "N/A";
+
+            // Show details panel and navigation button
+            detailsPanel.style.display = "block";
+            searchForm.style.display = "none";
+            resetBtn.style.display = "block";
+        }
+
+        // Render NOT FOUND / INVALID state
+        function showVerificationNotFound(certId) {
+            statusIcon.className = "status-icon-wrapper status-error";
+            statusIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            statusIcon.style.animation = "pulseRed 2s infinite";
+
+            // Add dynamic style animation
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @keyframes pulseRed {
+                    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+                    70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                }
+            `;
+            document.head.appendChild(style);
+
+            mainTitle.innerText = "Verification Failed";
+            subtitle.innerText = "Invalid Certificate Credentials";
+
+            messageBox.innerHTML = `<span class="badge badge-error"><i class="fa-solid fa-circle-xmark"></i> Unregistered ID</span><p style="margin-top: 10px;">We could not find a record matching the ID <strong>${certId}</strong>. This certificate is invalid, unregistered, or has been tampered with.</p>`;
+
+            detailsPanel.style.display = "none";
+            searchForm.style.display = "none";
+            resetBtn.style.display = "block";
+        }
+
+        // Render NETWORK/CONNECTION ERROR state
+        function showVerificationError(certId, reason) {
+            statusIcon.className = "status-icon-wrapper status-error";
+            statusIcon.innerHTML = '<i class="fa-solid fa-wifi"></i>';
+            statusIcon.style.animation = "none";
+
+            mainTitle.innerText = "Connection Error";
+            subtitle.innerText = "Failed to communicate with DB";
+
+            messageBox.innerHTML = `<p>We encountered an error querying the database for ID <strong>${certId}</strong>: <em>${reason}</em>. Please check your internet connection and try again.</p>`;
+
+            detailsPanel.style.display = "none";
+            searchForm.style.display = "none";
+            resetBtn.style.display = "block";
+        }
+    </script>
+</body>
+</html>
