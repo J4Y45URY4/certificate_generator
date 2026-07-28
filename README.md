@@ -54,3 +54,4 @@ python script.py
   - **ID Text**: Add the placeholder text `ID_PLACEHOLDER` in the PDF template where you want the Certificate ID text to be printed.
   - *Fallback*: If `QR_PLACEHOLDER` and `ID_PLACEHOLDER` are not found in the template, they will automatically fallback to a standard position in the bottom-left corner of the certificate.
 - **Text Color**: Keep placeholder text colors white (or matching the background color) so that the raw placeholder text isn't visible behind the printed text/images.
+

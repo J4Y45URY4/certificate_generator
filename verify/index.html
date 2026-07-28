@@ -297,6 +297,26 @@
             line-height: 1.6;
             margin-bottom: 30px;
         }
+
+        /* Responsive Mobile Layout overrides */
+        @media (max-width: 480px) {
+            .card {
+                padding: 28px 20px;
+                border-radius: 18px;
+            }
+            .main-heading {
+                font-size: 20px;
+            }
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            .detail-value {
+                text-align: left;
+                max-width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
