@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Certificate Verification Portal</title>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <!-- FontAwesome for beautiful icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Supabase Client CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+
     <style>
         :root {
             --bg-color: #080B11;
@@ -92,6 +94,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -126,7 +129,9 @@
         }
 
         @keyframes spin {
-            100% { transform: rotate(360deg); }
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* Verified / Success State */
@@ -146,9 +151,17 @@
         }
 
         @keyframes pulseBlue {
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 15px rgba(59, 130, 246, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
         }
 
         .main-heading {
@@ -304,14 +317,17 @@
                 padding: 28px 20px;
                 border-radius: 18px;
             }
+
             .main-heading {
                 font-size: 20px;
             }
+
             .detail-row {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 4px;
             }
+
             .detail-value {
                 text-align: left;
                 max-width: 100%;
@@ -319,11 +335,12 @@
         }
     </style>
 </head>
+
 <body>
 
     <div class="container">
         <div class="card" id="card">
-            
+
             <!-- Icon Wrapper -->
             <div id="status-icon" class="status-icon-wrapper status-loading">
                 <i class="fa-solid fa-circle-notch"></i>
@@ -361,13 +378,15 @@
             <!-- Manual Search Form -->
             <div class="search-form" id="search-form">
                 <div class="input-group">
-                    <input type="text" id="cert-input" class="input-field" placeholder="Enter Certificate ID (e.g. CERT-XXXXXX)">
+                    <input type="text" id="cert-input" class="input-field"
+                        placeholder="Enter Certificate ID (e.g. CERT-XXXXXX)">
                 </div>
                 <button onclick="performManualVerification()" class="action-button">Verify Credentials</button>
             </div>
 
             <!-- Back/Action Button for navigation -->
-            <button id="reset-btn" class="action-button" style="display: none; margin-top: 10px;" onclick="showSearchForm()">Verify Another ID</button>
+            <button id="reset-btn" class="action-button" style="display: none; margin-top: 10px;"
+                onclick="showSearchForm()">Verify Another ID</button>
 
         </div>
 
@@ -427,15 +446,15 @@
             statusIcon.className = "status-icon-wrapper status-loading";
             statusIcon.innerHTML = '<i class="fa-solid fa-shield-halved"></i>';
             statusIcon.style.animation = "none";
-            
+
             mainTitle.innerText = "Credential Verification";
             subtitle.innerText = "Verify a certificate authenticity by ID";
             messageBox.innerHTML = "Scan the QR code printed on the certificate, or enter the unique Certificate ID printed at the bottom of the page.";
-            
+
             detailsPanel.style.display = "none";
             searchForm.style.display = "block";
             resetBtn.style.display = "none";
-            
+
             document.getElementById('cert-input').value = "";
         }
 
@@ -458,11 +477,11 @@
             statusIcon.className = "status-icon-wrapper status-loading";
             statusIcon.innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
             statusIcon.style.animation = "";
-            
+
             mainTitle.innerText = "Verifying Certificate";
             subtitle.innerText = "Checking credentials database...";
             messageBox.innerText = "Verifying certificate parameters. Please wait...";
-            
+
             detailsPanel.style.display = "none";
             searchForm.style.display = "none";
             resetBtn.style.display = "none";
@@ -517,7 +536,7 @@
             subtitle.innerText = "Digital Certificate Signature Match";
 
             // Message Badge
-            messageBox.innerHTML = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Authentic Credential</span><p style="margin-top: 10px;">This certificate is officially registered, authentic, and was issued by authorized authorities.</p>';
+            messageBox.innerHTML = '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Authentic Credential</span><p style="margin-top: 10px;">This certificate is officially registered, authentic, and was issued by IEEE CUSAT SB.</p>';
 
             // Load Details
             idVal.innerText = certificate.id;
@@ -575,4 +594,5 @@
         }
     </script>
 </body>
+
 </html>

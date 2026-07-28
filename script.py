@@ -17,6 +17,8 @@ def add_names_to_certificates(
     include_qr=True,
     qr_placeholder="QR_PLACEHOLDER",
     id_placeholder="ID_PLACEHOLDER",
+    qr_size=45,
+    id_size=8,
     event_name="General Event",
     issue_date="2026-07-28",
     supabase_url=None,
@@ -122,7 +124,7 @@ def add_names_to_certificates(
             qr.make(fit=True)
             img = qr.make_image(fill_color="black", back_color="white")
             buf = io.BytesIO()
-            img.save(buf, format="PNG")
+            img.save(buf)
             return buf.getvalue()
 
         for index, row in df.iterrows():
@@ -178,8 +180,7 @@ def add_names_to_certificates(
                 else:
                     # Fallback to bottom-left corner
                     margin = 40
-                    qr_size = 70
-                    qr_rect = fitz.Rect(margin, page_h - margin - qr_size - 15, margin + qr_size, page_h - margin - 15)
+                    qr_rect = fitz.Rect(margin, page_h - margin - qr_size - 10, margin + qr_size, page_h - margin - 10)
                     new_page.insert_image(qr_rect, stream=qr_bytes)
                 
                 # Check for ID Placeholder in the PDF
@@ -187,14 +188,14 @@ def add_names_to_certificates(
                 if id_rects:
                     id_rect = id_rects[0]
                     new_page.draw_rect(id_rect, color=(1, 1, 1), fill=(1, 1, 1), width=0)
-                    id_width = fitz.get_text_length(cert_id, fontname="Helvetica", fontsize=10)
+                    id_width = fitz.get_text_length(cert_id, fontname="Helvetica", fontsize=id_size)
                     id_center_x = (id_rect.x0 + id_rect.x1) / 2 - (id_width / 2)
                     id_center_y = (id_rect.y0 + id_rect.y1) / 2
-                    new_page.insert_text((id_center_x, id_center_y), cert_id, fontsize=10, fontname="Helvetica")
+                    new_page.insert_text((id_center_x, id_center_y), cert_id, fontsize=id_size, fontname="Helvetica")
                 else:
                     # Fallback directly under the QR code
                     margin = 40
-                    new_page.insert_text((margin, page_h - margin), cert_id, fontsize=9, fontname="Helvetica")
+                    new_page.insert_text((margin, page_h - margin), cert_id, fontsize=id_size, fontname="Helvetica")
             
             # Save the PDF certificate
             safe_name = name.replace(" ", "_").replace(".", "").replace("/", "").replace("\\", "")

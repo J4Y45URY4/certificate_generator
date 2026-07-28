@@ -122,6 +122,8 @@ with st.sidebar:
     qr_placeholder = "QR_PLACEHOLDER"
     id_placeholder = "ID_PLACEHOLDER"
     verification_url = ""
+    qr_size = 45
+    id_size = 8
     
     if include_qr:
         verification_url = st.text_input(
@@ -131,6 +133,8 @@ with st.sidebar:
         )
         qr_placeholder = st.text_input("QR Key", value="QR_PLACEHOLDER", help="Placeholder text in template PDF for the QR code position.")
         id_placeholder = st.text_input("ID Key", value="ID_PLACEHOLDER", help="Placeholder text in template PDF for the ID text position.")
+        qr_size = st.slider("QR Code Size (Fallback)", min_value=15, max_value=150, value=45, step=1, help="Size of the fallback QR code image (in pt).")
+        id_size = st.slider("ID Font Size", min_value=5, max_value=30, value=8, step=1, help="Font size of the Certificate ID text.")
     
     # DB Status indicator
     st.markdown("---")
@@ -264,6 +268,8 @@ with col2:
                 include_qr=include_qr,
                 qr_placeholder=qr_placeholder,
                 id_placeholder=id_placeholder,
+                qr_size=qr_size,
+                id_size=id_size,
                 event_name=event_name,
                 issue_date=issue_date,
                 verification_base_url=verification_url,
