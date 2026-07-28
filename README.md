@@ -1,57 +1,112 @@
-# Certificate Generator 🎓
+# Bulk Certificate Generator with Supabase Authentication 🎓
 
-A modern, fast, and attractive bulk certificate generator. This tool automatically reads names from an Excel sheet (or CSV file) and inserts them centered into a PDF certificate template where a placeholder keyword exists.
+A modern, fast, and secure system for generating bulk personalized certificates and verifying their authenticity online. 
 
-It features two modern user interfaces:
-1. **CustomTkinter Desktop GUI** - A native desktop application window with a dark theme.
-2. **Streamlit Web GUI** - A browser-based interface supporting drag-and-drop file uploads, dynamic excel previews, and ZIP downloads.
+This tool reads names from an Excel sheet or CSV file, generates a unique Certificate ID, builds a verification QR code, embeds both elements directly into a PDF template, and synchronizes the metadata with a **Supabase Database** for instant online verification.
 
 ---
 
-## 🛠️ Installation
+## 🏗️ Project Architecture
 
-1. Ensure you have Python 3.8+ installed.
-2. Install the required libraries using pip:
-   ```bash
-   pip install -r requirements.txt
-   ```
+* **Core Generator (`script.py`)**: The python engine that handles name calculations, QR code creation, and database uploads.
+* **Desktop App (`gui.py`)**: A native desktop application built with `CustomTkinter` featuring dark mode.
+* **Web Dashboard (`app.py`)**: A browser-based web application built with `Streamlit` that supports drag-and-drop file uploads, names sheet previews, and ZIP packaging downloads.
+* **Verification Portal (`verify/`)**: A client-side static HTML/CSS/JS page (`verify/index.html`) using Supabase JS SDK that verifies scanned credentials in real-time.
 
 ---
 
-## 🚀 How to Run
+## 🛠️ Step-by-Step Setup
 
-### Option 1: CustomTkinter Desktop App (Recommended)
-This runs as a standalone desktop window on your system.
+### Step 1: Install Dependencies
+Ensure you have Python 3.8+ installed on your computer. Run the following command in your terminal to install the necessary libraries:
 ```bash
-python gui.py
+pip install -r requirements.txt
 ```
-- **Features**: Clean dark layout, native file browsing dialogs, sliders for font size, dropdown menus for font selection, and non-blocking multi-threaded processing.
 
-### Option 2: Streamlit Web Dashboard
-This runs as a modern, interactive web dashboard in your browser.
+### Step 2: Set up your Supabase Database
+1. Create a free account at [Supabase](https://supabase.com/).
+2. Create a new project and open the **SQL Editor** from the left-hand menu.
+3. Run the following SQL script to set up your `certificates` table and write-protect it using **Row Level Security (RLS)**:
+
+```sql
+-- 1. Create the certificates table
+create table public.certificates (
+  id text not null primary key,
+  name text not null,
+  event_name text not null,
+  issue_date text not null,
+  created_at timestamp with time zone default now()
+);
+
+-- 2. Turn on Row Level Security (RLS)
+alter table public.certificates enable row level security;
+
+-- 3. Create a policy to allow anyone to read records (required for QR code validation)
+create policy "Allow public read access" 
+  on public.certificates 
+  for select 
+  using (true);
+```
+
+### Step 3: Configure Environment Variables
+1. Copy [.env.example](file:///.env.example) and rename it to `.env` in the project root:
+2. Fill in your project API keys and database details:
+   ```env
+   SUPABASE_URL=https://your-project-id.supabase.co
+   SUPABASE_KEY=your_supabase_secret_service_role_key
+   VERIFICATION_BASE_URL=https://your-domain.vercel.app/
+   ```
+> [!IMPORTANT]
+> * **`SUPABASE_KEY`**: To keep your database secure, use the **`service_role` (secret)** key from your Supabase Dashboard (Settings -> API) for your local generator. This key is private and allows your Python script to insert new rows while the public is restricted to read-only queries.
+> * **`.env` Security**: The `.env` file is already listed in `.gitignore` so your secret keys will never be pushed to public repositories.
+
+---
+
+## 🚀 How to Run the Generators
+
+### Option 1: Streamlit Web Dashboard (Recommended)
+This launches a premium browser-based interface where you can configure the event, upload assets, preview datasets, adjust sizes on-the-fly, and download results as a single ZIP file:
 ```bash
 streamlit run app.py
 ```
-- **Features**: Drag-and-drop file uploaders, live spreadsheet preview, configuration sidebar, progress feedback, and single-click ZIP download of all generated certificates.
+
+### Option 2: CustomTkinter Desktop App
+This launches a native, dark-themed GUI window on your desktop with folder browsers and sliders:
+```bash
+python gui.py
+```
 
 ### Option 3: Command Line (CLI)
-You can still run it via the command line. Put your `template.pdf` and `names.xlsx` in the root folder, check that the column containing names is headed `"Name"`, and run:
+Place your `template.pdf` and `names.xlsx` in the root folder, configure `script.py` example defaults, and run:
 ```bash
 python script.py
 ```
 
 ---
 
-## 📝 Document Formatting Tips
+## 🌐 How to Deploy the Verification Portal on Vercel
 
-- **Name Column**: Make sure your Excel/CSV names file contains a column header labeled `"Name"` (case-insensitive). If no `"Name"` column is found, the script will fallback to the first column.
-- **Certificate ID**:
-  - The script will automatically scan for a `"Certificate ID"` column. If it exists, it will use the existing IDs.
-  - If it is missing, the script will generate unique IDs (e.g. `CERT-A1B2C3D4`) and write them back into the source Excel/CSV file under a new `"Certificate ID"` column.
-- **Placeholders**:
-  - **Name**: Add the placeholder text `NAME_PLACEHOLDER` inside your PDF template where you want the name to be printed.
-  - **QR Code**: Add the placeholder text `QR_PLACEHOLDER` in the PDF template where you want the QR code image to be inserted.
-  - **ID Text**: Add the placeholder text `ID_PLACEHOLDER` in the PDF template where you want the Certificate ID text to be printed.
-  - *Fallback*: If `QR_PLACEHOLDER` and `ID_PLACEHOLDER` are not found in the template, they will automatically fallback to a standard position in the bottom-left corner of the certificate.
-- **Text Color**: Keep placeholder text colors white (or matching the background color) so that the raw placeholder text isn't visible behind the printed text/images.
+You can host the public verification site for free on Vercel:
 
+1. Import your project repository into Vercel.
+2. Under **Project Settings**, set the **Root Directory** to `verify`.
+3. Click **Deploy**.
+4. Once Vercel generates your live URL (e.g. `https://ieee-verify.vercel.app/`), copy it and paste it as the `VERIFICATION_BASE_URL` in your local `.env` file.
+
+*Note: Since the public Anon Key is already coded into `verify/index.html`, no environment variables need to be set in the Vercel dashboard settings!*
+
+---
+
+## 📝 Document Formatting Guidelines
+
+### 1. The Names Spreadsheet (`names.xlsx` or `.csv`)
+* Must contain a column header labeled `"Name"` (case-insensitive).
+* If a `"Certificate ID"` column is found, the script will preserve existing IDs. Otherwise, it will automatically generate unique IDs (e.g., `CERT-A1B2C3D4`) and write them back into your source file.
+
+### 2. PDF Certificate Template
+For automated alignment, place the following invisible/matching-colored keywords inside your certificate template:
+* `NAME_PLACEHOLDER`: Centers the recipient's name at this location.
+* `QR_PLACEHOLDER`: Draws the verification QR code over this rectangle.
+* `ID_PLACEHOLDER`: Centers the Certificate ID text over this rectangle.
+
+*Fallback*: If `QR_PLACEHOLDER` or `ID_PLACEHOLDER` are missing in your PDF, they will automatically be drawn in a compact layout in the **bottom-left corner** of the page by default.
