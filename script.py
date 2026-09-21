@@ -7,6 +7,113 @@ import io
 import dotenv
 from supabase import create_client
 
+# Standard 14 built-in PDF fonts supported directly by PyMuPDF
+STANDARD_FONTS = [
+    "Times-italic", "Times-Roman", "Times-bold", 
+    "Helvetica", "Helvetica-oblique", "Helvetica-bold", 
+    "Courier", "Courier-oblique", "Courier-bold"
+]
+
+def get_available_fonts(fonts_dir=None):
+    """
+    Scans for available fonts and returns a dictionary of:
+    {friendly_name: font_file_path_or_None}.
+    Standard PDF fonts map to None. Custom fonts from the project 'fonts/'
+    directory or Windows user font directory map to their absolute file paths.
+    """
+    if fonts_dir is None:
+        fonts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+    
+    font_map = {}
+    
+    # 1. Register standard built-in PDF fonts
+    for sf in STANDARD_FONTS:
+        font_map[sf] = None
+        
+    def register_font_file(file_path):
+        if not (file_path.lower().endswith(".ttf") or file_path.lower().endswith(".otf")):
+            return
+        try:
+            f = fitz.Font(fontfile=file_path)
+            font_title = f.name.strip()
+            font_map[font_title] = os.path.abspath(file_path)
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            font_map[base_name] = os.path.abspath(file_path)
+            clean_name = base_name.replace("-Regular", "").replace("_Regular", "").replace("-", " ").replace("_", " ").strip()
+            if clean_name:
+                font_map[clean_name] = os.path.abspath(file_path)
+        except Exception:
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            font_map[base_name] = os.path.abspath(file_path)
+
+    # 2. Project fonts directory
+    if os.path.exists(fonts_dir):
+        for fname in os.listdir(fonts_dir):
+            register_font_file(os.path.join(fonts_dir, fname))
+            
+    # 3. Windows User Fonts directory if on Windows
+    win_user_fonts = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Windows", "Fonts")
+    if os.path.exists(win_user_fonts):
+        for fname in os.listdir(win_user_fonts):
+            register_font_file(os.path.join(win_user_fonts, fname))
+            
+    return font_map
+
+def resolve_font(font_name="Times-italic", font_file=None):
+    """
+    Resolves a font by name or explicit file path.
+    Returns: (font_alias, font_file_path, font_obj)
+    - If a custom TTF/OTF font: returns (safe_alias, absolute_path, fitz.Font object)
+    - If a standard PDF font: returns (standard_font_name, None, None)
+    """
+    # 1. Direct font_file provided and valid
+    if font_file and os.path.isfile(font_file):
+        try:
+            f = fitz.Font(fontfile=font_file)
+            alias = f.name.replace(" ", "_").replace("-", "_")
+            return alias, os.path.abspath(font_file), f
+        except Exception as e:
+            print(f"Warning: Could not load font file '{font_file}': {e}")
+
+    # 2. font_name is a direct file path
+    if font_name and os.path.isfile(font_name):
+        try:
+            f = fitz.Font(fontfile=font_name)
+            alias = f.name.replace(" ", "_").replace("-", "_")
+            return alias, os.path.abspath(font_name), f
+        except Exception:
+            pass
+
+    # 3. Search in available fonts dictionary
+    avail = get_available_fonts()
+    if font_name in avail and avail[font_name]:
+        font_path = avail[font_name]
+        try:
+            f = fitz.Font(fontfile=font_path)
+            alias = f.name.replace(" ", "_").replace("-", "_")
+            return alias, font_path, f
+        except Exception:
+            pass
+            
+    if font_name:
+        fn_lower = font_name.strip().lower()
+        for k, v in avail.items():
+            if k.lower() == fn_lower and v:
+                try:
+                    f = fitz.Font(fontfile=v)
+                    alias = f.name.replace(" ", "_").replace("-", "_")
+                    return alias, v, f
+                except Exception:
+                    pass
+
+    # 4. Built-in standard fonts check
+    for sf in STANDARD_FONTS:
+        if font_name and sf.lower() == font_name.lower():
+            return sf, None, None
+
+    # Fallback default
+    return font_name or "Times-italic", None, None
+
 def add_names_to_certificates(
     pdf_template_path, 
     excel_path, 
@@ -24,15 +131,20 @@ def add_names_to_certificates(
     supabase_url=None,
     supabase_key=None,
     verification_base_url=None,
-    progress_callback=None
+    progress_callback=None,
+    font_file=None
 ):
     """
     Adds names from an Excel sheet to a PDF certificate template, centering them.
+    Supports standard PDF fonts and any custom TrueType/OpenType font (such as Calligraffitti).
     Generates a unique ID and QR code, inserts them into the certificate,
     saves the IDs to the Excel sheet, and uploads metadata to Supabase DB.
     """
     # Load dotenv file
     dotenv.load_dotenv()
+    
+    # Resolve font configuration
+    font_alias, resolved_font_path, font_obj = resolve_font(font_name=font_name, font_file=font_file)
     
     # Resolve Supabase variables
     db_url = supabase_url or os.getenv("SUPABASE_URL")
@@ -155,10 +267,17 @@ def add_names_to_certificates(
             page_w = new_page.rect.width
             page_h = new_page.rect.height
             
-            # 2. Insert centered name
-            text_width = fitz.get_text_length(name, fontname=font_name, fontsize=text_size)
-            start_x = center_x - (text_width / 2)
-            new_page.insert_text((start_x, center_y), name, fontsize=text_size, fontname=font_name)
+            # 2. Erase placeholder and insert centered name
+            new_page.draw_rect(placeholder_rect, color=(1, 1, 1), fill=(1, 1, 1), width=0)
+            if font_obj and resolved_font_path:
+                text_width = font_obj.text_length(name, fontsize=text_size)
+                start_x = center_x - (text_width / 2)
+                new_page.insert_font(fontname=font_alias, fontfile=resolved_font_path)
+                new_page.insert_text((start_x, center_y), name, fontsize=text_size, fontname=font_alias)
+            else:
+                text_width = fitz.get_text_length(name, fontname=font_alias, fontsize=text_size)
+                start_x = center_x - (text_width / 2)
+                new_page.insert_text((start_x, center_y), name, fontsize=text_size, fontname=font_alias)
             
             # 3. Insert QR Code and Certificate ID
             if include_qr:
@@ -236,6 +355,7 @@ if __name__ == '__main__':
                 
             files = add_names_to_certificates(
                 pdf_template, excel_file, output_dir, placeholder, 
+                font_name="Calligraffitti",
                 event_name="Testing Workshop", issue_date="2026-07-28",
                 progress_callback=cli_callback
             )

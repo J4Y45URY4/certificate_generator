@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import dotenv
-from script import add_names_to_certificates
+from script import add_names_to_certificates, get_available_fonts
 
 # Load environment variables from .env
 dotenv.load_dotenv()
@@ -98,17 +98,28 @@ class CertificateGeneratorGUI(ctk.CTk):
         self.placeholder_entry.insert(0, "NAME_PLACEHOLDER")
         self.placeholder_entry.grid(row=0, column=1, padx=(0, 15), pady=(15, 10), sticky="ew")
 
-        # Font Family
-        self.font_label = ctk.CTkLabel(self.settings_frame, text="Font Style:", font=ctk.CTkFont(weight="bold"))
-        self.font_label.grid(row=0, column=2, padx=15, pady=(15, 10), sticky="w")
+        # Font Family & Custom Font Selection
+        self.available_fonts = get_available_fonts()
+        self.custom_font_path = None
         
-        font_options = [
+        custom_names = []
+        for k in ["Calligraffitti"] + list(self.available_fonts.keys()):
+            if self.available_fonts.get(k) is not None and not k.endswith(" Regular") and not k.endswith("-Regular"):
+                if k not in custom_names:
+                    custom_names.append(k)
+
+        standard_names = [
             "Times-italic", "Times-Roman", "Times-bold", 
             "Helvetica", "Helvetica-oblique", "Helvetica-bold", 
             "Courier", "Courier-oblique", "Courier-bold"
         ]
-        self.font_combobox = ctk.CTkOptionMenu(self.settings_frame, values=font_options)
-        self.font_combobox.set("Times-italic")
+        font_options = custom_names + standard_names
+
+        self.font_label = ctk.CTkLabel(self.settings_frame, text="Font Style:", font=ctk.CTkFont(weight="bold"))
+        self.font_label.grid(row=0, column=2, padx=15, pady=(15, 10), sticky="w")
+        
+        self.font_combobox = ctk.CTkOptionMenu(self.settings_frame, values=font_options, command=self.on_font_selected)
+        self.font_combobox.set("Calligraffitti" if "Calligraffitti" in font_options else "Times-italic")
         self.font_combobox.grid(row=0, column=3, padx=(0, 15), pady=(15, 10), sticky="ew")
 
         # Font Size
@@ -121,6 +132,19 @@ class CertificateGeneratorGUI(ctk.CTk):
         
         self.size_value_label = ctk.CTkLabel(self.settings_frame, text="37 pt", font=ctk.CTkFont(weight="bold"))
         self.size_value_label.grid(row=1, column=3, padx=(0, 15), pady=10, sticky="w")
+
+        # Row 2: Browse Any Custom Font
+        self.custom_font_label = ctk.CTkLabel(self.settings_frame, text="Custom Font File:", font=ctk.CTkFont(weight="bold"))
+        self.custom_font_label.grid(row=2, column=0, padx=15, pady=(5, 15), sticky="w")
+
+        self.custom_font_btn = ctk.CTkButton(
+            self.settings_frame, 
+            text="📁 Browse Font (.ttf / .otf)...", 
+            fg_color="#374151", 
+            hover_color="#4B5563",
+            command=self.browse_custom_font
+        )
+        self.custom_font_btn.grid(row=2, column=1, columnspan=3, padx=(0, 15), pady=(5, 15), sticky="ew")
 
         # --- SECTION 3: Event & Supabase DB configurations ---
         self.db_frame = ctk.CTkFrame(self.main_frame)
@@ -243,6 +267,27 @@ class CertificateGeneratorGUI(ctk.CTk):
     def update_slider_label(self, value):
         self.size_value_label.configure(text=f"{int(value)} pt")
 
+    def on_font_selected(self, choice):
+        if choice in self.available_fonts and self.available_fonts[choice]:
+            self.custom_font_path = self.available_fonts[choice]
+        else:
+            self.custom_font_path = None
+
+    def browse_custom_font(self):
+        filename = filedialog.askopenfilename(
+            title="Select Custom Font File",
+            filetypes=[("Font files", "*.ttf *.otf"), ("All files", "*.*")]
+        )
+        if filename:
+            self.custom_font_path = os.path.abspath(filename)
+            base_name = os.path.splitext(os.path.basename(filename))[0]
+            current_values = list(self.font_combobox.cget("values"))
+            if base_name not in current_values:
+                current_values.insert(0, base_name)
+                self.font_combobox.configure(values=current_values)
+            self.font_combobox.set(base_name)
+            self.custom_font_btn.configure(text=f"Font: {os.path.basename(filename)} (Click to change)")
+
     # Background threading for non-blocking generation
     def start_generation(self):
         template = self.template_entry.get().strip()
@@ -275,6 +320,8 @@ class CertificateGeneratorGUI(ctk.CTk):
             messagebox.showerror("Error", f"Names file not found: {names_file}")
             return
 
+        font_file = self.custom_font_path or self.available_fonts.get(font_name)
+
         # Disable button to prevent double-clicks
         self.generate_btn.configure(state="disabled", text="Processing...")
         self.progress_bar.set(0.0)
@@ -284,13 +331,13 @@ class CertificateGeneratorGUI(ctk.CTk):
         thread = threading.Thread(
             target=self.run_generation,
             args=(template, names_file, output_dir, placeholder, font_name, font_size, 
-                  include_qr, qr_placeholder, id_placeholder, event_name, issue_date, verification_url)
+                  include_qr, qr_placeholder, id_placeholder, event_name, issue_date, verification_url, font_file)
         )
         thread.daemon = True
         thread.start()
 
     def run_generation(self, template, names_file, output_dir, placeholder, font_name, font_size, 
-                       include_qr, qr_placeholder, id_placeholder, event_name, issue_date, verification_url):
+                       include_qr, qr_placeholder, id_placeholder, event_name, issue_date, verification_url, font_file=None):
         def progress_callback(index, total, name):
             progress_fraction = index / total
             self.after(0, self.update_progress, progress_fraction, f"Generating certificate {index}/{total}: {name}")
@@ -309,7 +356,8 @@ class CertificateGeneratorGUI(ctk.CTk):
                 event_name=event_name,
                 issue_date=issue_date,
                 verification_base_url=verification_url,
-                progress_callback=progress_callback
+                progress_callback=progress_callback,
+                font_file=font_file
             )
             self.after(0, self.generation_finished, True, f"Successfully created {len(generated_files)} certificates!\nThe input file has been updated with Certificate IDs.\nOutput folder:\n{output_dir}")
         except Exception as e:

@@ -110,3 +110,15 @@ For automated alignment, place the following invisible/matching-colored keywords
 * `ID_PLACEHOLDER`: Centers the Certificate ID text over this rectangle.
 
 *Fallback*: If `QR_PLACEHOLDER` or `ID_PLACEHOLDER` are missing in your PDF, they will automatically be drawn in a compact layout in the **bottom-left corner** of the page by default.
+
+---
+
+## 🎨 Custom Fonts & Typography
+
+The system supports **any TrueType (`.ttf`) or OpenType (`.otf`) custom font** alongside standard PDF fonts.
+
+* **Calligraffitti Font**: Included out-of-the-box in `fonts/Calligraffitti-Regular.ttf` for elegant calligraphy certificates.
+* **Auto-Discovery Folder**: Drop any `.ttf` or `.otf` font file into the [`fonts/`](file:///fonts) directory. It will automatically be detected and listed across the Streamlit Web Dashboard, Desktop GUI, and Python script.
+* **Streamlit Web Dashboard**: Select `"➕ Upload Custom Font (.ttf / .otf)..."` from the sidebar dropdown to upload any font directly through your browser.
+* **Desktop GUI**: Click the `"📁 Browse Font (.ttf / .otf)..."` button to select any font file from anywhere on your computer.
+
